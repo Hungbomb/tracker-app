@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   Check, Plus, X, Trophy, Clock, Zap, Flame,
   ChevronLeft, ChevronRight, Sparkles, Edit3, Trash2,
-  Download, Upload, Settings, LogOut
+  Download, Upload, Settings
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
@@ -30,14 +30,13 @@ const INITIAL_PUNCH = {
   '2026-05-11': new Date(2026, 4, 11, 14, 46).toISOString(),
 };
 
-const MILESTONES = [10, 50, 100, 150, 200, 250, 300, 365];
+const MILESTONES = [25, 50, 75, 100, 125, 150];
 const WORK_HOURS_MS = 4 * 60 * 60 * 1000;
 const MONTHLY_TARGET = 12;
 
 const STORAGE_PUNCH = 'tracker:punch-data';
 const STORAGE_EXERCISE = 'tracker:exercise-data';
 const STORAGE_INITIALIZED = 'tracker:initialized-v1';
-const STORAGE_MIGRATED = 'tracker:supabase-migrated';
 
 const dateKey = (d) =>
   `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -85,111 +84,6 @@ function LoadingScreen({ text }) {
   );
 }
 
-function LoginScreen() {
-  const [email, setEmail] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [otp, setOtp] = useState('');
-  const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const sendOtp = async () => {
-    if (!email.trim()) return;
-    setSubmitting(true);
-    setError('');
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: { shouldCreateUser: true },
-    });
-    setSubmitting(false);
-    if (error) {
-      setError(error.message);
-    } else {
-      setOtpSent(true);
-    }
-  };
-
-  const verifyOtp = async () => {
-    if (otp.length !== 6) return;
-    setSubmitting(true);
-    setError('');
-    const { error } = await supabase.auth.verifyOtp({
-      email: email.trim(),
-      token: otp.trim(),
-      type: 'email',
-    });
-    setSubmitting(false);
-    if (error) setError('驗證碼錯誤，請重試');
-  };
-
-  return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center p-6">
-        <div className="fixed inset-0 scan-bg pointer-events-none" />
-        <div className="fixed inset-x-0 top-0 h-64 bg-gradient-to-b from-lime-500/5 to-transparent pointer-events-none" />
-        <div className="relative max-w-sm w-full">
-          <div className="text-[10px] tracking-[0.35em] text-lime-400 font-mono mb-2">◆ DAILY · OPS</div>
-          <h1 className="text-3xl font-display font-extrabold mb-1">控制台</h1>
-          <div className="text-zinc-500 text-sm mb-8 font-mono">輸入 Email 登入以同步資料</div>
-
-          {!otpSent ? (
-            <div className="space-y-3">
-              <div>
-                <div className="text-[9px] tracking-[0.3em] text-zinc-500 font-mono mb-2">EMAIL</div>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && sendOtp()}
-                  placeholder="your@email.com"
-                  autoFocus
-                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-lime-400/60 px-4 py-3 text-sm font-mono outline-none transition-colors"
-                />
-              </div>
-              {error && <div className="text-red-400 text-xs font-mono">{error}</div>}
-              <button
-                onClick={sendOtp}
-                disabled={submitting || !email.trim()}
-                className="w-full bg-lime-400 hover:bg-lime-300 disabled:bg-zinc-800 disabled:text-zinc-600 text-zinc-950 py-3.5 font-bold tracking-wider transition-colors pulse-glow"
-              >
-                {submitting ? '傳送中···' : '傳送驗證碼'}
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="text-[11px] text-zinc-400 leading-relaxed border border-zinc-800 p-3 bg-zinc-900/60">
-                已傳送到 <span className="text-lime-400 font-mono">{email}</span>，請查收 6 位數驗證碼。
-              </div>
-              <div>
-                <div className="text-[9px] tracking-[0.3em] text-zinc-500 font-mono mb-2">驗證碼</div>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={otp}
-                  onChange={e => setOtp(e.target.value.replace(/\D/g, ''))}
-                  onKeyDown={e => e.key === 'Enter' && verifyOtp()}
-                  placeholder="000000"
-                  autoFocus
-                  className="w-full bg-zinc-900 border border-zinc-800 focus:border-lime-400/60 px-4 py-3 text-xl font-mono text-center outline-none tracking-[0.5em] transition-colors"
-                />
-              </div>
-              {error && <div className="text-red-400 text-xs font-mono">{error}</div>}
-              <button
-                onClick={verifyOtp}
-                disabled={submitting || otp.length !== 6}
-                className="w-full bg-lime-400 hover:bg-lime-300 disabled:bg-zinc-800 disabled:text-zinc-600 text-zinc-950 py-3.5 font-bold tracking-wider transition-colors"
-              >
-                {submitting ? '驗證中···' : '確認登入'}
-              </button>
-              <button onClick={() => setOtpSent(false)} className="w-full text-xs text-zinc-600 hover:text-zinc-400 py-2 transition-colors">
-                ← 重新輸入 Email
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-  );
-}
-
 /* ============================================================
  * Main App
  * ============================================================ */
@@ -202,8 +96,6 @@ export default function App() {
   const [now, setNow] = useState(new Date());
   const [toast, setToast] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
-  const [authUser, setAuthUser] = useState(null);
-  const [authChecking, setAuthChecking] = useState(true);
 
   useEffect(() => {
     if (tab !== 'punch') return;
@@ -213,31 +105,13 @@ export default function App() {
 
   useEffect(() => {
     let mounted = true;
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (mounted) {
-        setAuthUser(session?.user ?? null);
-        setAuthChecking(false);
-      }
-    });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (mounted) setAuthUser(session?.user ?? null);
-    });
-    return () => {
-      mounted = false;
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!authUser) return;
-    let mounted = true;
 
     const load = async () => {
       setLoading(true);
       try {
         const [{ data: punchRows, error: pe }, { data: exerciseRows, error: ee }] = await Promise.all([
-          supabase.from('punch_records').select('date, punch_time').eq('user_id', authUser.id),
-          supabase.from('exercise_records').select('date').eq('user_id', authUser.id),
+          supabase.from('punch_records').select('date, punch_time'),
+          supabase.from('exercise_records').select('date'),
         ]);
         if (pe || ee) throw pe || ee;
 
@@ -245,26 +119,23 @@ export default function App() {
         (punchRows || []).forEach(r => { punch[r.date] = r.punch_time; });
         const exercise = (exerciseRows || []).map(r => r.date).sort();
 
-        // 首次登入：將 localStorage 資料遷移到 Supabase
-        if (Object.keys(punch).length === 0 && exercise.length === 0 && !storage.get(STORAGE_MIGRATED)) {
+        if (Object.keys(punch).length === 0 && exercise.length === 0) {
           const { punch: localPunch, exercise: localExercise } = loadLocalData();
-
           if (Object.keys(localPunch).length) {
             await supabase.from('punch_records').upsert(
-              Object.entries(localPunch).map(([date, punch_time]) => ({ user_id: authUser.id, date, punch_time })),
-              { onConflict: 'user_id,date' }
+              Object.entries(localPunch).map(([date, punch_time]) => ({ date, punch_time })),
+              { onConflict: 'date' }
             );
             Object.assign(punch, localPunch);
           }
           if (localExercise.length) {
             await supabase.from('exercise_records').upsert(
-              localExercise.map(date => ({ user_id: authUser.id, date })),
-              { onConflict: 'user_id,date' }
+              localExercise.map(date => ({ date })),
+              { onConflict: 'date' }
             );
             exercise.push(...localExercise);
             exercise.sort();
           }
-          storage.set(STORAGE_MIGRATED, true);
         }
 
         if (mounted) {
@@ -287,7 +158,7 @@ export default function App() {
 
     load();
     return () => { mounted = false; };
-  }, [authUser]);
+  }, []);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -298,7 +169,6 @@ export default function App() {
     const oldData = punchData;
     setPunchData(newData);
     storage.set(STORAGE_PUNCH, newData);
-    if (!authUser) return;
 
     try {
       const oldDates = new Set(Object.keys(oldData));
@@ -306,13 +176,13 @@ export default function App() {
       const toUpsert = [...newDates].filter(d => newData[d] !== oldData[d]);
       if (toUpsert.length) {
         await supabase.from('punch_records').upsert(
-          toUpsert.map(date => ({ user_id: authUser.id, date, punch_time: newData[date] })),
-          { onConflict: 'user_id,date' }
+          toUpsert.map(date => ({ date, punch_time: newData[date] })),
+          { onConflict: 'date' }
         );
       }
       const toDelete = [...oldDates].filter(d => !newDates.has(d));
       if (toDelete.length) {
-        await supabase.from('punch_records').delete().eq('user_id', authUser.id).in('date', toDelete);
+        await supabase.from('punch_records').delete().in('date', toDelete);
       }
     } catch (err) {
       console.error('Supabase punch sync error', err);
@@ -323,29 +193,26 @@ export default function App() {
     const oldData = exerciseData;
     setExerciseData(newData);
     storage.set(STORAGE_EXERCISE, newData);
-    if (!authUser) return;
 
     try {
       const oldSet = new Set(oldData);
-      const newSet = new Set(newData);
       const toInsert = newData.filter(d => !oldSet.has(d));
       if (toInsert.length) {
         await supabase.from('exercise_records').upsert(
-          toInsert.map(date => ({ user_id: authUser.id, date })),
-          { onConflict: 'user_id,date' }
+          toInsert.map(date => ({ date })),
+          { onConflict: 'date' }
         );
       }
+      const newSet = new Set(newData);
       const toDelete = oldData.filter(d => !newSet.has(d));
       if (toDelete.length) {
-        await supabase.from('exercise_records').delete().eq('user_id', authUser.id).in('date', toDelete);
+        await supabase.from('exercise_records').delete().in('date', toDelete);
       }
     } catch (err) {
       console.error('Supabase exercise sync error', err);
     }
   };
 
-  if (authChecking) return <LoadingScreen text="LOADING···" />;
-  if (!authUser) return <LoginScreen />;
   if (loading) return <LoadingScreen text="SYNCING···" />;
 
   return (
@@ -369,10 +236,6 @@ export default function App() {
               if (d.exercise) updateExercise(d.exercise);
             }}
             showToast={showToast}
-            onSignOut={async () => {
-              await supabase.auth.signOut();
-              setShowSettings(false);
-            }}
           />
         )}
 
@@ -424,11 +287,10 @@ export default function App() {
 
 /* ========================= SETTINGS ========================= */
 
-function SettingsModal({ punchData, exerciseData, onClose, onImport, showToast, onSignOut }) {
+function SettingsModal({ punchData, exerciseData, onClose, onImport, showToast }) {
   const [mode, setMode] = useState('menu');
   const [importText, setImportText] = useState('');
   const [exportText, setExportText] = useState('');
-  const [confirmSignOut, setConfirmSignOut] = useState(false);
 
   const handleExport = () => {
     const data = { punch: punchData, exercise: exerciseData };
@@ -521,22 +383,6 @@ function SettingsModal({ punchData, exerciseData, onClose, onImport, showToast, 
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-zinc-800 mt-3">
-                {!confirmSignOut ? (
-                  <button onClick={() => setConfirmSignOut(true)} className="w-full p-3 border border-zinc-800 hover:border-red-900/60 hover:bg-red-950/20 transition-all text-left flex items-center gap-3">
-                    <LogOut size={16} className="text-zinc-500" />
-                    <div className="text-sm text-zinc-400">登出</div>
-                  </button>
-                ) : (
-                  <div className="border border-red-900/60 bg-red-950/30 p-3 slide-down">
-                    <div className="text-xs text-red-300 mb-2 text-center">確定要登出？</div>
-                    <div className="flex gap-2">
-                      <button onClick={onSignOut} className="flex-1 py-2 bg-red-500 hover:bg-red-400 text-white text-xs font-bold tracking-wider">確定登出</button>
-                      <button onClick={() => setConfirmSignOut(false)} className="flex-1 py-2 border border-zinc-700 text-zinc-300 text-xs tracking-wider">取消</button>
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
           )}
 
