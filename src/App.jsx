@@ -96,6 +96,14 @@ export default function App() {
   const [now, setNow] = useState(new Date());
   const [toast, setToast] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [quickPunch, setQuickPunch] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('punch') === '1') {
+      window.history.replaceState(null, '', window.location.pathname);
+      return true;
+    }
+    return false;
+  });
 
   useEffect(() => {
     if (tab !== 'punch') return;
@@ -213,10 +221,23 @@ export default function App() {
     }
   };
 
+  const handleQuickPunchIn = (t) => {
+    const today = todayKey();
+    updatePunch({ ...punchData, [today]: t.toISOString() });
+  };
+
   if (loading) return <LoadingScreen text="SYNCING···" />;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 relative">
+        {quickPunch && (
+          <QuickPunchOverlay
+            punchData={punchData}
+            now={now}
+            onPunch={handleQuickPunchIn}
+            onClose={() => setQuickPunch(false)}
+          />
+        )}
         <div className="fixed inset-0 scan-bg pointer-events-none" />
         <div className="fixed inset-x-0 top-0 h-64 bg-gradient-to-b from-lime-500/5 to-transparent pointer-events-none" />
 
@@ -282,6 +303,74 @@ export default function App() {
           </footer>
         </div>
       </div>
+  );
+}
+
+/* ====================== QUICK PUNCH OVERLAY ====================== */
+
+function QuickPunchOverlay({ punchData, now, onPunch, onClose }) {
+  const today = todayKey();
+  const [punchedAt, setPunchedAt] = useState(null);
+
+  const todayISO = punchData[today];
+  const alreadyPunched = !!todayISO;
+  const checkIn = alreadyPunched ? new Date(todayISO) : null;
+  const refTime = punchedAt ?? checkIn;
+  const leaveTime = refTime ? new Date(refTime.getTime() + WORK_HOURS_MS) : null;
+  const canLeave = leaveTime ? leaveTime <= now : false;
+
+  const handleConfirm = () => {
+    const t = new Date();
+    setPunchedAt(t);
+    onPunch(t);
+  };
+
+  if (punchedAt) {
+    return (
+      <div className="fixed inset-0 z-50 bg-zinc-950 flex flex-col items-center justify-center p-8 fade-in">
+        <div className="text-[10px] tracking-[0.4em] text-lime-400 font-mono mb-4">PUNCHED IN</div>
+        <div className="text-5xl font-mono text-zinc-100 mb-2">{formatHM(punchedAt)}</div>
+        <div className="text-[10px] tracking-[0.3em] text-zinc-500 font-mono mt-6 mb-1">LEAVE AT</div>
+        <div className="text-6xl font-display font-extrabold text-amber-400 mb-12">{formatHM(leaveTime)}</div>
+        <button onClick={onClose} className="border border-zinc-700 hover:border-zinc-500 text-zinc-400 hover:text-zinc-200 px-10 py-3 text-xs tracking-[0.3em] font-mono transition-colors">
+          CLOSE
+        </button>
+      </div>
+    );
+  }
+
+  if (alreadyPunched) {
+    return (
+      <div className="fixed inset-0 z-50 bg-zinc-950 flex flex-col items-center justify-center p-8 fade-in">
+        <div className="text-[10px] tracking-[0.4em] text-zinc-500 font-mono mb-4">ALREADY CHECKED IN</div>
+        <div className="text-5xl font-mono text-zinc-100 mb-2">{formatHM(checkIn)}</div>
+        <div className="text-[10px] tracking-[0.3em] text-zinc-500 font-mono mt-6 mb-1">{canLeave ? 'STATUS' : 'LEAVE AT'}</div>
+        {canLeave ? (
+          <div className="text-5xl font-display font-extrabold text-lime-400 mb-12">可以下班 ✓</div>
+        ) : (
+          <div className="text-6xl font-display font-extrabold text-amber-400 mb-12">{formatHM(leaveTime)}</div>
+        )}
+        <button onClick={onClose} className="border border-zinc-700 hover:border-zinc-500 text-zinc-400 hover:text-zinc-200 px-10 py-3 text-xs tracking-[0.3em] font-mono transition-colors">
+          CLOSE
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-zinc-950 flex flex-col items-center justify-center p-8 fade-in">
+      <div className="text-[10px] tracking-[0.4em] text-zinc-500 font-mono mb-4">PUNCH IN</div>
+      <div className="text-6xl font-mono text-zinc-100 mb-12 tabular-nums">{formatHM(now)}</div>
+      <button
+        onClick={handleConfirm}
+        className="w-full max-w-xs bg-lime-400 hover:bg-lime-300 active:scale-95 text-zinc-950 font-display font-extrabold py-7 text-2xl tracking-wider transition-all pulse-glow mb-5"
+      >
+        CONFIRM
+      </button>
+      <button onClick={onClose} className="text-zinc-500 hover:text-zinc-300 py-3 text-xs tracking-[0.3em] font-mono transition-colors">
+        CANCEL
+      </button>
+    </div>
   );
 }
 
